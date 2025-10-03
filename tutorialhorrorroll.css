@@ -15,6 +15,35 @@
     align-items: center;
 }
 
+.disc {
+    position: relative;
+    width: 54px;
+    height: 54px;
+    z-index: 3;
+    transform-style: preserve-3d;
+}
+.disc .disc-faces { 
+    transform-style: preserve-3d;
+}
+.disc[data-color="000000"] .disc-faces { 
+    transform: rotateY(180deg);
+}
 
+.disc-face {
+    position: absolute;
+    width: 54px;
+    height: 54px;
+    background-image: url('img/Tokens.png');
+    background-size: auto 100%;
+    backface-visibility: hidden;
+}
+.disc-face[data-side="white"] { 
+    background-position-x: 0%; 
+    transform: rotateY(0deg);
+}
+.disc-face[data-side="black"] { 
+    background-position-x: 100%; 
+    transform: rotateY(180deg);
+}
 
 

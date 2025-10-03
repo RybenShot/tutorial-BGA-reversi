@@ -17,8 +17,8 @@ class PlayerTurn extends GameState
         parent::__construct($game,
             id: 10,
             type: StateType::ACTIVE_PLAYER,
-            description: clienttranslate('${actplayer} must play a card or pass'),
-            descriptionMyTurn: clienttranslate('${you} must play a card or pass'),
+            description: clienttranslate('${actplayer} Que vas a hacer?'),
+            descriptionMyTurn: clienttranslate('${you} Que vas a hacer?'),
         );
     }
 
