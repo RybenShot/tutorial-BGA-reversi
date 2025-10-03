@@ -1,0 +1,20 @@
+#board {
+    width: 536px;
+    height: 528px;
+    background-image: url('img/Board.jpg');
+    position: relative;
+}
+
+.square {
+    width: 62px;
+    height: 62px;
+    position: absolute;
+    outline: 3px solid rgb(255, 197, 88);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+
+
