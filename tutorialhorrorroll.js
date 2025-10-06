@@ -8,7 +8,7 @@ define([
 function (e, declare, n, a, BgaAnimations) {
     return declare("bgagame.tutorialhorrorroll", ebg.core.gamegui, {
 
-        // vairbale para probar que funcione bien la puesta de fichas
+        // variable para probar que funcione bien la puesta de fichas
         //TODO una vez puesta a PROD borrar esta variable
         localizacionFicha : 'square_2_2',
 
@@ -17,9 +17,10 @@ function (e, declare, n, a, BgaAnimations) {
             console.log('Bienvenido a reversi, mi tutorial'); 
         },
 
-        // aqui construimos la interfaz inicial (solo se ejecuta 1 vez, al iniciar)
-        setup: function(datosdelJuego) {
-            console.warn('=== INICIO SETUP ===');
+        // aqui construimos la interfaz inicial (solo se ejecuta 1 vez, al iniciar), Constructor de la interfaz
+        setup: function(datosDelJuego) {
+            console.warn('=== INICIO SETUP!! ===');
+            
 
             this.animationManager = new BgaAnimations.Manager({
                 animationsActive: () => this.bgaAnimationsActive(),
@@ -44,7 +45,7 @@ function (e, declare, n, a, BgaAnimations) {
             }
 
             // Setup jugadores
-            Object.values(datosdelJuego.players).forEach(datosJugador => {
+            Object.values(datosDelJuego.players).forEach(datosJugador => {
                 // añadimos un contador de "Energy" 
                 this.getPlayerPanelElement(datosJugador.id).insertAdjacentHTML("beforeend", `\n <span id="energy-player-counter-${datosJugador.id}"></span> Energia\n `);
 
@@ -57,36 +58,29 @@ function (e, declare, n, a, BgaAnimations) {
 
             });
 
+            // Colocamos fichas iniciales
+            this.addTokenOnBoard(datosDelJuego)
+
             // Prepara el sistema para recibir actualizaciones del servidor
             this.setupNotifications()
-
-            // console.log('=== FIN SETUP, LLAMANDO addTokenOnBoard ===');
-            this.addTokenOnBoard()
-
         },
 
-        addDiscOnBoard: async function( x, y, playerId, animate = true ){
+        // Recibe los movimientos posibles del PHP, Llama a "updatePossibleMoves" para resaltarlos
 
-            const color = this.gamedatas.players[ playerId ].color;
-            const discId = `disc_${x}_${y}`;
 
-            document.getElementById(`square_${x}_${y}`).insertAdjacentHTML('beforeend', `
-                <div class="disc" data-color="${color}" id="${discId}">
-                    <div class="disc-faces">
-                        <div class="disc-face" data-side="white"></div>
-                        <div class="disc-face" data-side="black"></div>
-                    </div>
-                </div>
-            `);
-
-            if (animate) {
-                const element = document.getElementById(discId);
-                await this.animationManager.fadeIn(element, document.getElementById(`overall_player_board_${playerId}`));
+        onEnteringState: function( stateName, args ){
+            // console.log( 'Entering state: '+stateName );
+            // console.log( 'State args:', args );
+            
+            switch( stateName ){
+                case 'PlayerTurn':
+                    // console.log('Possible moves:', args.args.possibleMoves);
+                    this.updatePossibleMoves( args.args.possibleMoves );
+                    // console.warn('Possible moves:', args.args.possibleMoves);
+                    break;
             }
         },
 
-        // tanto al salir como al entrar del estado actualmente esta vacio
-        onEnteringState: function (e, t) { e },
         onLeavingState: function (e) { e }, 
 
         // actualiza botones de accion
@@ -108,9 +102,11 @@ function (e, declare, n, a, BgaAnimations) {
             this.bgaSetupPromiseNotifications() 
         },
 
-        
+        //! Utility methods
 
-        // para probar que funcione bien
+        // funcion que coloca fichas concretas en el tablero usando la funcion "addDiscOnBoard"
+        // legazy, quitamos este formato manual para poner el bueno
+        /*
         addTokenOnBoard: function(localizacionFicha){
             // Si no se pasa parámetro, usar la variable de clase
             localizacionFicha = localizacionFicha || this.localizacionFicha
@@ -125,5 +121,55 @@ function (e, declare, n, a, BgaAnimations) {
                 console.log('Cuadrados disponibles:', Array.from(document.querySelectorAll('.square')).map(el => el.id));
             }
         }
+        */
+
+        // funcion usada para repartir peso de funcion del Setup
+        addTokenOnBoard: function(datosDelJuego){
+            for( var i in datosDelJuego.board ) {
+                var square = datosDelJuego.board[i];
+                
+                if( square.player !== null )
+                {
+                    this.addDiscOnBoard( square.x, square.y, square.player, false );
+                }
+            }
+        },
+
+        // Funcion usada para poner un disco en tablero coin la animacion
+        addDiscOnBoard: async function( x, y, playerId, animate = true ){
+
+            const color = this.gamedatas.players[ playerId ].color;
+            const discId = `disc_${x}_${y}`;
+
+            document.getElementById(`square_${x}_${y}`).insertAdjacentHTML('beforeend', `
+                <div class="disc" data-color="${color}" id="${discId}">
+                    <div class="disc-faces">
+                        <div class="disc-face" data-side="white"></div>
+                        <div class="disc-face" data-side="black"></div>
+                    </div>
+                </div>
+            `);
+
+            if (animate) {
+                const element = document.getElementById(discId);
+                await this.animationManager.fadeIn(element, document.getElementById(`overall_player_board_${playerId}`));
+            }
+        },
+
+        // funcion usada para mostrar los posibles movimientos
+        updatePossibleMoves: function( possibleMoves ){
+            // Quita todas las clases .possibleMove
+            document.querySelectorAll('.possibleMove').forEach(div => div.classList.remove('possibleMove'));
+
+            // Para cada movimiento válido, añade clase .possibleMove → se ve blanco semitransparente (CSS)
+            for( var x in possibleMoves ) {
+                for( var y in possibleMoves[ x ] ) {
+                    // x,y is a possible move
+                    document.getElementById(`square_${x}_${y}`).classList.add('possibleMove');
+                }            
+            }
+                        
+            this.addTooltipToClass( 'possibleMove', '', _('Place a disc here') );
+        },
     })
 });

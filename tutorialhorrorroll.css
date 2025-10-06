@@ -46,4 +46,10 @@
     transform: rotateY(180deg);
 }
 
+.possibleMove {
+    background-color: white;
+    opacity: 0.2; 
+    cursor: pointer;  
+}
+
 

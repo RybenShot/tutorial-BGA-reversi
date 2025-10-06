@@ -1,19 +1,4 @@
 <?php
-/**
- *------
- * BGA framework: Gregory Isabelli & Emmanuel Colin & BoardGameArena
- * TutorialHorrorRoll implementation : © <Your name here> <Your email address here>
- *
- * This code has been produced on the BGA studio platform for use on http://boardgamearena.com.
- * See http://en.boardgamearena.com/#!doc/Studio for more information.
- * -----
- *
- * Game.php
- *
- * This is the main file for your game logic.
- *
- * In this PHP file, you are going to defines the rules of the game.
- */
 declare(strict_types=1);
 
 namespace Bga\Games\TutorialHorrorRoll;
@@ -21,111 +6,22 @@ namespace Bga\Games\TutorialHorrorRoll;
 use Bga\Games\TutorialHorrorRoll\States\PlayerTurn;
 use Bga\GameFramework\Components\Counters\PlayerCounter;
 
-class Game extends \Bga\GameFramework\Table
-{
-    public static array $CARD_TYPES;
-
+// Fijate que extiende de una parte del Framework de BGA, en este caso el tablero, en el caso de los estados extiende e GameState, para controlar los estados del juego
+class Game extends \Bga\GameFramework\Table{
+ 
     public PlayerCounter $playerEnergy;
 
-    /**
-     * Your global variables labels:
-     *
-     * Here, you can assign labels to global variables you are using for this game. You can use any number of global
-     * variables with IDs between 10 and 99. If you want to store any type instead of int, use $this->globals instead.
-     *
-     * NOTE: afterward, you can get/set the global variables with `getGameStateValue`, `setGameStateInitialValue` or
-     * `setGameStateValue` functions.
-     */
-    public function __construct()
-    {
+    public function __construct(){
+
         parent::__construct();
         $this->initGameStateLabels([]); // mandatory, even if the array is empty
 
+        // Inicializamos el contador de energía de jugadores
         $this->playerEnergy = $this->counterFactory->createPlayerCounter('energy');
-
-        self::$CARD_TYPES = [
-            1 => [
-                "card_name" => clienttranslate('Troll'), // ...
-            ],
-            2 => [
-                "card_name" => clienttranslate('Goblin'), // ...
-            ],
-            // ...
-        ];
-
-        /* example of notification decorator.
-        // automatically complete notification args when needed
-        $this->notify->addDecorator(function(string $message, array $args) {
-            if (isset($args['player_id']) && !isset($args['player_name']) && str_contains($message, '${player_name}')) {
-                $args['player_name'] = $this->getPlayerNameById($args['player_id']);
-            }
-        
-            if (isset($args['card_id']) && !isset($args['card_name']) && str_contains($message, '${card_name}')) {
-                $args['card_name'] = self::$CARD_TYPES[$args['card_id']]['card_name'];
-                $args['i18n'][] = ['card_name'];
-            }
-            
-            return $args;
-        });*/
     }
 
-    /**
-     * Compute and return the current game progression.
-     *
-     * The number returned must be an integer between 0 and 100.
-     *
-     * This method is called each time we are in a game state with the "updateGameProgression" property set to true.
-     *
-     * @return int
-     * @see ./states.inc.php
-     */
-    public function getGameProgression()
-    {
-        // TODO: compute and return the game progression
-
-        return 0;
-    }
-
-    /**
-     * Migrate database.
-     *
-     * You don't have to care about this until your game has been published on BGA. Once your game is on BGA, this
-     * method is called everytime the system detects a game running with your old database scheme. In this case, if you
-     * change your database scheme, you just have to apply the needed changes in order to update the game database and
-     * allow the game to continue to run with your new version.
-     *
-     * @param int $from_version
-     * @return void
-     */
-    public function upgradeTableDb($from_version)
-    {
-//       if ($from_version <= 1404301345)
-//       {
-//            // ! important ! Use `DBPREFIX_<table_name>` for all tables
-//
-//            $sql = "ALTER TABLE `DBPREFIX_xxxxxxx` ....";
-//            $this->applyDbUpgradeToAllDB( $sql );
-//       }
-//
-//       if ($from_version <= 1405061421)
-//       {
-//            // ! important ! Use `DBPREFIX_<table_name>` for all tables
-//
-//            $sql = "CREATE TABLE `DBPREFIX_xxxxxxx` ....";
-//            $this->applyDbUpgradeToAllDB( $sql );
-//       }
-    }
-
-    /*
-     * Gather all information about current game situation (visible by the current player).
-     *
-     * The method is called each time the game interface is displayed to a player, i.e.:
-     *
-     * - when the game starts
-     * - when a player refreshes the game page (F5)
-     */
-    protected function getAllDatas(): array
-    {
+    // Envia datos al cliente cuando carga el juego
+    protected function getAllDatas(): array {
         $result = [];
 
         // WARNING: We must only return information visible by the current player.
@@ -134,25 +30,24 @@ class Game extends \Bga\GameFramework\Table
         // Get information about players.
         // NOTE: you can retrieve some extra field you added for "player" table in `dbmodel.sql` if you need it.
         $result["players"] = $this->getCollectionFromDb(
-            "SELECT `player_id` `id`, `player_score` `score` FROM `player`"
+            "SELECT `player_id` `id`, `player_score` `score`, `player_color` `color` FROM `player`"
         );
         $this->playerEnergy->fillResult($result);
 
-        // TODO: Gather all information about current game situation (visible by player $current_player_id).
+        // Get reversi board token
+        $result['board'] = self::getObjectListFromDB( "SELECT board_x x, board_y y, board_player player
+            FROM board
+            WHERE board_player IS NOT NULL" );
 
-        return $result;
+        return $result; // Estos datos llegan al JavaScript como datosDelJuego
     }
 
-    /**
-     * This method is called only once, when a new game is launched. In this method, you must setup the game
-     *  according to the game rules, so that the game is ready to be played.
-     */
-    protected function setupNewGame($players, $options = [])
-    {
+    // Se ejecuta UNA VEZ al crear la partida
+    protected function setupNewGame($players, $options = []){
+
+        //! 1- Creamos los jugadores en BD
         $this->playerEnergy->initDb(array_keys($players), initialValue: 2);
 
-        // Set the colors of the players with HTML color code. The default below is red/green/blue/orange/brown. The
-        // number of colors defined here must correspond to the maximum number of players allowed for the gams.
         $gameinfos = $this->getGameinfos();
         $default_colors = array("ffffff", "000000");
 
@@ -167,10 +62,6 @@ class Game extends \Bga\GameFramework\Table
             ]);
         }
 
-        // Create players based on generic information.
-        //
-        // NOTE: You can add extra field on player table in the database (see dbmodel.sql) and initialize
-        // additional fields directly here.
         static::DbQuery(
             sprintf(
                 "INSERT INTO player (player_id, player_color, player_canal, player_name, player_avatar) VALUES %s",
@@ -181,36 +72,36 @@ class Game extends \Bga\GameFramework\Table
         // $this->reattributeColorsBasedOnPreferences($players, $gameinfos["player_colors"]);
         $this->reloadPlayersBasicInfos();
 
-        // Init global values with their initial values.
+        //! 2- Llenamos el tablero con 64 casillas vacias y 4 fichas iniciales
+        $sql = "INSERT INTO board (board_x,board_y,board_player) VALUES ";
+        $sql_values = array();
+        list( $blackplayer_id, $whiteplayer_id ) = array_keys( $players );
+        for( $x=1; $x<=8; $x++ ){
+            for( $y=1; $y<=8; $y++ ){
+                $token_value = "NULL";
 
-        // Init game statistics.
-        //
-        // NOTE: statistics used in this file must be defined in your `stats.inc.php` file.
+                if( ($x==4 && $y==4) || ($x==5 && $y==5) ){ // Initial positions of white player
+                    $token_value = "'$whiteplayer_id'";
+                } else if( ($x==4 && $y==5) || ($x==5 && $y==4) ) { // Initial positions of black player
+                    $token_value = "'$blackplayer_id'";
+                }                
+                $sql_values[] = "('$x','$y',$token_value)";
+            }
+        }
+        $sql .= implode( ',', $sql_values );
+        $this->DbQuery( $sql );
 
-        // Dummy content.
-        // $this->initStat("table", "table_teststat1", 0);
-        // $this->initStat("player", "player_teststat1", 0);
-
-        // TODO: Setup the initial game situation here.
-
-        // Activate first player once everything has been initialized and ready.
+        //! 3- Activamos el primer jugador
         $this->activeNextPlayer();
 
+        //! 4- Comenzamos el juego con el estado "PlayerTurn"
         return PlayerTurn::class;
     }
 
-    /**
-     * Example of debug function.
-     * Here, jump to a state you want to test (by default, jump to next player state)
-     * You can trigger it on Studio using the Debug button on the right of the top bar.
-     */
-    public function debug_goToState(int $state = 3) {
-        $this->gamestate->jumpToState($state);
-    }
+    public function getGameProgression() { return 0; }
+    public function upgradeTableDb($from_version){ }
+    public function debug_goToState(int $state = 3) { $this->gamestate->jumpToState($state); }
 
-    /**
-     * Another example of debug function, to easily test the zombie code.
-     */
     public function debug_playAutomatically(int $moves = 50) {
         $count = 0;
         while (intval($this->gamestate->getCurrentMainStateId()) < 99 && $count < $moves) {
@@ -222,13 +113,111 @@ class Game extends \Bga\GameFramework\Table
         }
     }
 
-    /*
-    Another example of debug function, to easily create situations you want to test.
-    Here, put a card you want to test in your hand (assuming you use the Deck component).
+    /**
+     * Calcula qué fichas se voltearían si el jugador coloca una ficha en la posición (x, y)
+     * Devuelve un array con las coordenadas de las fichas que se voltearían, o array vacío si es movimiento inválido
+     * 
+     * @param int $x Coordenada X donde se quiere colocar la ficha
+     * @param int $y Coordenada Y donde se quiere colocar la ficha
+     * @param int $player ID del jugador que quiere colocar la ficha
+     * @param array $board Tablero completo (array 2D con todas las casillas)
+     * @return array Array de coordenadas ['x' => x, 'y' => y] de fichas que se voltearían
+     */
+    function getTurnedOverDiscs($x, $y, $player, $board) {
+        
+        $turnedOverDiscs = array(); // Fichas que se voltearán al final
 
-    public function debug_setCardInHand(int $cardType, int $playerId) {
-        $card = array_values($this->cards->getCardsOfType($cardType))[0];
-        $this->cards->moveCard($card['id'], 'hand', $playerId);
+        // Si la casilla ya está ocupada, no es un movimiento válido
+        if ($board[$x][$y] === null) {
+            
+            // Las 8 direcciones posibles: ↖ ↑ ↗ ← → ↙ ↓ ↘
+            $directions = array(
+                array(-1, -1), array(-1, 0), array(-1, 1), array(0, -1),
+                array(0, 1),   array(1, -1), array(1, 0),  array(1, 1)
+            );
+
+            // Revisar cada dirección
+            foreach ($directions as $direction) {
+                
+                // Empezamos desde la casilla donde queremos colocar la ficha
+                $current_x = $x;
+                $current_y = $y;
+                $bContinue = true;
+                $mayBeTurnedOver = array(); // Fichas que PODRÍAN voltearse en esta dirección
+
+                // Avanzar en esta dirección hasta encontrar algo definitivo
+                while ($bContinue) {
+                    
+                    // Mover a la siguiente casilla en esta dirección
+                    $current_x += $direction[0];
+                    $current_y += $direction[1];
+
+                    // ¿Nos salimos del tablero?
+                    if ($current_x < 1 || $current_x > 8 || $current_y < 1 || $current_y > 8)
+                        $bContinue = false; // Fuera del tablero → parar en esta dirección
+                    
+                    // ¿Es una casilla vacía?
+                    else if ($board[$current_x][$current_y] === null)
+                        $bContinue = false; // Casilla vacía → parar en esta dirección
+                    
+                    // ¿Es una ficha del oponente?
+                    else if ($board[$current_x][$current_y] != $player) {
+                        // Ficha del oponente → añadirla a las "que podrían voltearse"
+                        // y continuar avanzando en esta dirección
+                        $mayBeTurnedOver[] = array('x' => $current_x, 'y' => $current_y);
+                    }
+                    
+                    // ¿Es una ficha nuestra?
+                    else if ($board[$current_x][$current_y] == $player) {
+                        
+                        // Si NO hay fichas del oponente entre medias
+                        if (count($mayBeTurnedOver) == 0) {
+                            // No hay nada que voltear en esta dirección → parar
+                            $bContinue = false;
+                        }
+                        // Si SÍ hay fichas del oponente entre medias
+                        else {
+                            // ¡Encontramos fichas para voltear!
+                            // Añadirlas al resultado final y parar en esta dirección
+                            $turnedOverDiscs = array_merge($turnedOverDiscs, $mayBeTurnedOver);
+                            $bContinue = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $turnedOverDiscs;
     }
-    */
+
+    // Lee TODA la tabla board de la BD
+    function getBoard() {
+        return self::getDoubleKeyCollectionFromDB( "SELECT board_x x, board_y y, board_player player FROM board", true );
+    }
+
+    // Devuelve array con todas las casillas válidas para ese jugador
+    function getPossibleMoves( $player_id ) {
+        $result = [];
+
+        $board = self::getBoard();
+
+        // Recorremos las 64 casillas
+        for( $x=1; $x<=8; $x++ ){
+            for( $y=1; $y<=8; $y++ ){
+                // para cada una llamamos a la funcion "Oraculo" (revisa la ficha , busca y muestra posibles movimientos al jugador actual )
+                $returned = self::getTurnedOverDiscs( $x, $y, $player_id, $board );
+                if( count( $returned ) == 0 ){
+                    // si no voltea una ficha, NO es un movimientos valido
+                } else {
+                    // si voltea una ficha, SI es un movimientos valido
+                    if( ! isset( $result[$x] ) )
+                        $result[$x] = array();
+
+                    $result[$x][$y] = true;
+                }
+            }
+        }
+        return $result;
+    }
+
 }
